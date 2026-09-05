@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     :root {
@@ -1179,6 +1180,8 @@
         <h3>AMARA WEARS</h3>
         <p>Two-piece sets, skirts, and tops for every version of you.</p>
         <p>Nairobi, Kenya</p>
+        <p><a href="mailto:amarawear@gmail.com">amarawear@gmail.com</a></p>
+        <p><a href="tel:0734808081">0734808081</a></p>
       </div>
       <div>
         <h4>Shop</h4>
@@ -1205,7 +1208,7 @@
 
 
   <!-- CART -->
-  <div class="overlay" id="overlay" onclick="closeCart();closeAuth();closeCustomOrder()"></div>
+  <div class="overlay" id="overlay" onclick="closeCart();closeAuth();closeCustomOrder();closeCheckout()"></div>
 
   <div class="cart" id="cartPanel">
     <div class="cart-header">
@@ -1223,16 +1226,42 @@
   </div>
 
 
+  <!-- CHECKOUT MODAL -->
+  <div class="modal" id="checkoutModal">
+    <div class="modal-box modal-box-lg">
+      <button class="close" style="position:absolute;top:15px;right:15px" onclick="closeCheckout()">×</button>
+      <h2>Checkout</h2>
+      <p>Tell us where to deliver and how we should reach you.</p>
+      <select class="input" id="deliveryLocation">
+        <option value="Nairobi" data-fee="250">Nairobi — KES 250 delivery</option>
+        <option value="Outside Nairobi" data-fee="400">Outside Nairobi — KES 400 delivery</option>
+      </select>
+      <textarea class="input" id="deliveryAddress" rows="3" placeholder="Delivery address, estate or landmark"></textarea>
+      <div class="field-row">
+        <select class="input" id="orderContactMethod">
+          <option value="WhatsApp">WhatsApp</option>
+          <option value="Phone call">Phone call</option>
+          <option value="SMS">SMS</option>
+          <option value="Email">Email</option>
+        </select>
+        <input class="input" type="text" id="orderContactValue" placeholder="Number or email">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="submitCheckout()">Place Order</button>
+    </div>
+  </div>
+
+
   <!-- AUTH MODAL -->
   <div class="modal" id="authModal">
     <div class="modal-box">
       <button class="close" style="position:absolute;top:15px;right:15px" onclick="closeAuth()">×</button>
       <h2>Welcome back</h2>
-      <p>Sign in to track orders and save favourites.</p>
-      <input class="input" type="email" placeholder="Email address">
-      <input class="input" type="password" placeholder="Password">
-      <button class="btn btn-primary" style="width:100%" onclick="fakeSignIn()">Sign In</button>
-      <button class="google-btn" onclick="fakeSignIn()">Continue with Google</button>
+      <p id="authDescription">Sign in to track orders and save favourites.</p>
+      <input class="input" type="email" id="authEmail" placeholder="Email address">
+      <input class="input" type="password" id="authPassword" placeholder="Password">
+      <button class="btn btn-primary" style="width:100%" onclick="submitAuth()" id="authSubmit">Sign In</button>
+      <button class="google-btn" onclick="signInWithGoogle()">Continue with Google</button>
+      <button class="text-btn" onclick="toggleAuthMode()" id="authModeToggle">Create an account</button>
     </div>
   </div>
 
@@ -1311,6 +1340,11 @@
 
 
   <script>
+    const SUPABASE_URL = "https://ickbjjnemmpdlreduknp.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_MAMhuLWjZ58WtUzZw5XuFg_8T3nCj7x";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    let authMode = "signin";
+
     /* ============= ILLUSTRATED GARMENT ART (no photos, no faces) ============= */
 
     function svgWrap(inner) {
@@ -1588,7 +1622,56 @@
         showToast("Your bag is empty");
         return;
       }
-      showToast("Checkout via M-Pesa is coming in the next build phase");
+      closeCart();
+      document.getElementById("checkoutModal").classList.add("show");
+      document.getElementById("overlay").classList.add("show");
+    }
+
+    function closeCheckout() {
+      document.getElementById("checkoutModal").classList.remove("show");
+      document.getElementById("overlay").classList.remove("show");
+    }
+
+    async function submitCheckout() {
+      const locationSelect = document.getElementById("deliveryLocation");
+      const deliveryLocation = locationSelect.value;
+      const deliveryFee = Number(locationSelect.options[locationSelect.selectedIndex].dataset.fee);
+      const deliveryAddress = document.getElementById("deliveryAddress").value.trim();
+      const contactMethod = document.getElementById("orderContactMethod").value;
+      const contactValue = document.getElementById("orderContactValue").value.trim();
+
+      if (!deliveryAddress) {
+        showToast("Add a delivery address");
+        return;
+      }
+      if (!contactValue) {
+        showToast("Add a contact so we can reach you");
+        return;
+      }
+
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { error } = await supabaseClient.from("orders").insert({
+        user_id: user ? user.id : null,
+        items: cart.map(item => ({ product_id: item.id, name: item.name, size: item.size, qty: item.qty, price: item.price })),
+        subtotal,
+        delivery_location: deliveryLocation,
+        delivery_address: deliveryAddress,
+        delivery_fee: deliveryFee,
+        total: subtotal + deliveryFee,
+        contact_method: contactMethod,
+        contact_value: contactValue
+      });
+
+      if (error) {
+        showToast(`Could not place order: ${error.message}`);
+        return;
+      }
+
+      cart = [];
+      updateCartUI();
+      closeCheckout();
+      showToast("Order received — we'll be in touch shortly");
     }
 
     /* ============= AUTH MODAL ============= */
@@ -1603,9 +1686,44 @@
       document.getElementById("overlay").classList.remove("show");
     }
 
-    function fakeSignIn() {
+    function toggleAuthMode() {
+      authMode = authMode === "signin" ? "signup" : "signin";
+      document.getElementById("authSubmit").textContent = authMode === "signin" ? "Sign In" : "Create Account";
+      document.getElementById("authDescription").textContent = authMode === "signin"
+        ? "Sign in to track orders and save favourites."
+        : "Create an account to track orders and save favourites.";
+      document.getElementById("authModeToggle").textContent = authMode === "signin"
+        ? "Create an account"
+        : "Already have an account? Sign in";
+    }
+
+    async function submitAuth() {
+      const email = document.getElementById("authEmail").value.trim();
+      const password = document.getElementById("authPassword").value;
+      if (!email || !password) {
+        showToast("Enter your email and password");
+        return;
+      }
+
+      const result = authMode === "signin"
+        ? await supabaseClient.auth.signInWithPassword({ email, password })
+        : await supabaseClient.auth.signUp({ email, password });
+
+      if (result.error) {
+        showToast(result.error.message);
+        return;
+      }
+
       closeAuth();
-      showToast("Sign-in will connect to Supabase in the next phase");
+      showToast(authMode === "signin" ? "Signed in successfully" : "Account created — check your email to confirm");
+    }
+
+    async function signInWithGoogle() {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href }
+      });
+      if (error) showToast(error.message);
     }
 
     /* ============= CUSTOM ORDER ============= */
@@ -1635,7 +1753,7 @@
       el.textContent = `KES ${deposit.toLocaleString()} of KES ${price.toLocaleString()}`;
     }
 
-    function submitCustomOrder() {
+    async function submitCustomOrder() {
       const garmentSelect = document.getElementById("coGarment");
       const garment = garmentSelect.value;
       const opt = garmentSelect.options[garmentSelect.selectedIndex];
@@ -1644,6 +1762,11 @@
       const bust = document.getElementById("coBust").value.trim();
       const waist = document.getElementById("coWaist").value.trim();
       const hips = document.getElementById("coHips").value.trim();
+      const colorFabric = document.getElementById("coColor").value.trim();
+      const crotchLength = document.getElementById("coCrotch").value.trim();
+      const height = document.getElementById("coHeight").value.trim();
+      const shoulder = document.getElementById("coShoulder").value.trim();
+      const notes = document.getElementById("coNotes").value.trim();
       const contactValue = document.getElementById("coContactValue").value.trim();
       const contactMethod = document.getElementById("coContactMethod").value;
 
@@ -1662,8 +1785,28 @@
 
       const deposit = Math.round(price * 0.5);
 
-      // In the next build phase this posts to Supabase + triggers an
-      // M-Pesa STK push for the deposit amount below.
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { error } = await supabaseClient.from("custom_orders").insert({
+        user_id: user ? user.id : null,
+        garment,
+        color_fabric: colorFabric,
+        bust,
+        waist,
+        hips,
+        crotch_length: crotchLength,
+        height,
+        shoulder,
+        notes,
+        deposit_amount: deposit,
+        contact_method: contactMethod,
+        contact_value: contactValue
+      });
+
+      if (error) {
+        showToast(`Could not submit custom order: ${error.message}`);
+        return;
+      }
+
       showToast(`Order received — we'll ${contactMethod.toLowerCase()} ${contactValue} for the KES ${deposit.toLocaleString()} deposit`);
       closeCustomOrder();
     }
