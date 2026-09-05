@@ -17,13 +17,15 @@
       --plum-dark: #2d0d22;
       --ivory: #faf4ea;
       --ivory-dark: #f0e5d7;
-      --sienna: #b75c3b;
-      --sienna-dark: #93452d;
+      --sienna: #a56bb0;
+      --sienna-dark: #7d4d87;
       --white: #fff;
-      --black: #171217;
-      --muted: #776d74;
-      --border: #e8ddd5;
-      --shadow: 0 18px 50px rgba(45, 13, 34, .12);
+      --black: #24232c;
+      --grey: #8b8791;
+      --grey-light: #ece9ec;
+      --muted: var(--grey);
+      --border: #e3dde8;
+      --shadow: 0 18px 50px rgba(48, 40, 77, .15);
       --radius: 20px;
     }
 
@@ -73,9 +75,10 @@
       position: sticky;
       top: 0;
       z-index: 100;
-      background: rgba(250,244,234,.94);
+      background: rgba(250, 244, 234, .96);
       backdrop-filter: blur(16px);
-      border-bottom: 1px solid rgba(75,25,57,.08);
+      border-bottom: 2px solid rgba(75, 25, 57, .14);
+      box-shadow: 0 8px 24px rgba(75, 25, 57, .1);
     }
 
     .nav {
@@ -98,6 +101,7 @@
       height: 48px;
       width: auto;
       display: block;
+      object-fit: contain;
     }
 
     .nav-links {
@@ -130,6 +134,34 @@
 
     .icon-btn:hover {
       background: var(--ivory-dark);
+    }
+
+    .account-btn {
+      min-width: 116px;
+      height: 48px;
+      padding: 0 15px;
+      border: 2px solid var(--plum);
+      border-radius: 100px;
+      background: var(--ivory);
+      color: var(--plum);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      transition: .25s ease;
+    }
+
+    .account-btn:hover {
+      background: var(--plum);
+      color: white;
+      transform: translateY(-2px);
+    }
+
+    .account-figure {
+      font-size: 25px;
+      line-height: 1;
     }
 
     .cart-count {
@@ -168,7 +200,7 @@
     }
 
     .eyebrow {
-      color: #e9b49e;
+      color: #c4b7ed;
       font-size: 12px;
       letter-spacing: .25em;
       font-weight: 700;
@@ -184,14 +216,14 @@
     }
 
     .hero h1 span {
-      color: #d98a6d;
+      color: #b9a7ed;
       font-style: italic;
     }
 
     .hero-description {
       max-width: 450px;
       line-height: 1.8;
-      color: #eadde3;
+      color: #e5e2ef;
       margin-bottom: 35px;
     }
 
@@ -215,7 +247,7 @@
     }
 
     .btn-primary:hover {
-      background: #c96c49;
+      background: #896bd4;
       transform: translateY(-2px);
     }
 
@@ -232,7 +264,7 @@
       position: relative;
       min-height: 690px;
       overflow: hidden;
-      background: radial-gradient(circle at 30% 20%, #5c2246, var(--plum) 60%);
+      background: radial-gradient(circle at 30% 20%, #7665a7, var(--plum) 60%);
     }
 
     .hero-image svg {
@@ -240,6 +272,30 @@
       inset: 0;
       width: 100%;
       height: 100%;
+    }
+
+    .decorative-divider {
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      color: var(--sienna);
+      background: var(--ivory);
+    }
+
+    .decorative-divider::before,
+    .decorative-divider::after {
+      content: "";
+      width: min(180px, 22vw);
+      height: 1px;
+      background: var(--grey-light);
+    }
+
+    .decorative-divider span {
+      font-family: "Playfair Display", serif;
+      font-size: 18px;
+      line-height: 1;
     }
 
     /* ================= CATEGORIES ================= */
@@ -315,7 +371,7 @@
     /* ================= PRODUCTS ================= */
 
     .shop-section {
-      background: #fffaf4;
+      background: var(--grey-light);
     }
 
     .shop-tools {
@@ -488,7 +544,7 @@
     }
 
     .add-btn:disabled {
-      background: #d2c7c1;
+      background: #c9c7d2;
       cursor: not-allowed;
     }
 
@@ -555,7 +611,7 @@
     }
 
     .newsletter p {
-      color: #d8cbd2;
+      color: #d8d4e6;
       margin: 12px 0 25px;
     }
 
@@ -577,7 +633,7 @@
     /* ================= FOOTER ================= */
 
     footer {
-      background: #210918;
+      background: #252036;
       color: white;
       padding: 55px 25px 25px;
     }
@@ -598,12 +654,12 @@
 
     footer h4 {
       margin-bottom: 15px;
-      color: #e9b49e;
+      color: var(--grey);
     }
 
     footer p,
     footer a {
-      color: #cdbec6;
+      color: var(--grey);
       font-size: 13px;
       line-height: 2;
       display: block;
@@ -614,7 +670,7 @@
       margin: 40px auto 0;
       padding-top: 20px;
       border-top: 1px solid rgba(255,255,255,.1);
-      color: #9e8c98;
+      color: var(--grey);
       font-size: 12px;
     }
 
@@ -943,6 +999,29 @@
       transform: translate(-50%, 0);
     }
 
+    input,
+    select,
+    textarea,
+    .search,
+    .input,
+    .newsletter-form input,
+    .chat-input input,
+    .filter,
+    .size,
+    .heart,
+    .bot,
+    .google-btn {
+      background: var(--white);
+    }
+
+    .heart:hover,
+    .filter:hover,
+    .filter.active,
+    .size:hover:not(:disabled),
+    .size.selected {
+      background: var(--plum);
+    }
+
     /* ================= MOBILE ================= */
 
     @media(max-width: 1000px) {
@@ -1054,7 +1133,10 @@
       </div>
 
       <div class="nav-actions">
-        <button class="icon-btn" onclick="openAuth()" aria-label="Account">◐</button>
+        <button class="account-btn" onclick="openAuth()" aria-label="Sign in or create an account" title="Sign in or create an account">
+          <span class="account-figure" aria-hidden="true">👩🏾</span>
+          <span>Sign in</span>
+        </button>
 
         <button class="icon-btn" onclick="openCart()" aria-label="Cart">
           ♡
@@ -1096,6 +1178,8 @@
     <div class="hero-image" id="heroArt"></div>
 
   </section>
+
+  <div class="decorative-divider" aria-hidden="true"><span>✦</span></div>
 
 
   <!-- CATEGORIES -->
@@ -1389,8 +1473,8 @@
       `);
     }
 
-    const PLUM = "#4b1939";
-    const SIENNA = "#b75c3b";
+    const PLUM = "#5a4a8a";
+    const SIENNA = "#a56bb0";
 
     // Drop a direct image URL into a product/category's "image" field below
     // (e.g. a photo hosted on Supabase storage, Cloudinary, or anywhere public)
@@ -1420,10 +1504,10 @@
     document.getElementById("heroArt").innerHTML = `
       <svg viewBox="0 0 500 690" preserveAspectRatio="xMidYMid slice">
         <path d="M 220 150 L 190 110 L 250 70 L 310 110 L 280 150 L 330 230 L 250 690 L 170 690 L 220 230 Z"
-          fill="none" stroke="#e9b49e" stroke-width="2.5" opacity=".85"/>
-        <path d="M 260 300 H 400 L 470 470 H 190 Z" fill="none" stroke="#d98a6d" stroke-width="2" opacity=".55"
+          fill="none" stroke="#c4b7ed" stroke-width="2.5" opacity=".85"/>
+        <path d="M 260 300 H 400 L 470 470 H 190 Z" fill="none" stroke="#b9a7ed" stroke-width="2" opacity=".55"
           transform="translate(0,60)"/>
-        <circle cx="250" cy="90" r="8" fill="none" stroke="#e9b49e" stroke-width="2" opacity=".85"/>
+        <circle cx="250" cy="90" r="8" fill="none" stroke="#c4b7ed" stroke-width="2" opacity=".85"/>
       </svg>`;
 
     document.getElementById("aboutArt").innerHTML = `
@@ -1827,30 +1911,150 @@
       document.getElementById("chatBox").classList.toggle("show");
     }
 
+    function escapeChatHtml(value) {
+      return String(value).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function buildSiteKnowledge() {
+      const productDetails = PRODUCTS.map(product => {
+        const availableSizes = product.sizes.filter(size => !product.soldOut.includes(size));
+        const stockNote = product.soldOut.length
+          ? ` Sold-out sizes: ${product.soldOut.join(", ")}.`
+          : " All listed sizes are currently available.";
+        return {
+          text: `${product.name} ${product.category} price cost KES ${product.price} sizes ${product.sizes.join(" ")} available ${availableSizes.join(" ")} stock ${product.soldOut.join(" ")}`,
+          answer: `${product.name} is a ${product.category.toLowerCase()} priced at KES ${product.price.toLocaleString()}. Sizes listed: ${product.sizes.join(", ")}.${stockNote}`
+        };
+      });
+
+      return [
+        {
+          text: "what sell collection products clothing categories two piece sets skirts midi long tops dresses",
+          answer: "KATAWA WEAR sells two-piece sets, midi skirts, long skirts, tops, and dresses. The collection is designed for movement and repeat wear."
+        },
+        {
+          text: "size sizing fit size guide sizes small medium large extra large S M L XL availability sold out",
+          answer: "Sizes vary by piece and are shown on each product card: S, M, L, or XL. A crossed-out size is sold out. Choose an available size before adding a piece to your bag."
+        },
+        {
+          text: "sets two piece co ord matching outfit top skirt midi long",
+          answer: "Two-Piece Sets pair a top with a midi or long skirt. Current set options and prices are shown in the Two-Piece Sets category."
+        },
+        {
+          text: "skirts skirt mini midi long length",
+          answer: "The ready-to-wear skirt range includes midi and long skirts. There are no mini skirts in the current collection."
+        },
+        {
+          text: "price prices cost affordable money KES catalogue",
+          answer: `Ready-to-wear prices range from KES ${Math.min(...PRODUCTS.map(product => product.price)).toLocaleString()} to KES ${Math.max(...PRODUCTS.map(product => product.price)).toLocaleString()}. Ask about a product name for its exact price and available sizes.`
+        },
+        {
+          text: "delivery shipping deliver location Kenya Nairobi outside fee cost free threshold",
+          answer: "Delivery is available across Kenya: Nairobi costs KES 250 and outside Nairobi costs KES 400. Delivery is free when the order subtotal is over KES 5,000. Add your address at checkout."
+        },
+        {
+          text: "order checkout buy purchase bag cart place order delivery address contact",
+          answer: "Select a size, add the piece to your bag, open the bag, and choose Checkout. You will provide a delivery location, address or landmark, and a WhatsApp, phone, SMS, or email contact."
+        },
+        {
+          text: "custom made bespoke tailor measurements order garment fabric colour color occasion deadline",
+          answer: "Custom orders are available for a two-piece set, midi skirt, long skirt, top, or dress. The form asks for bust, waist, hips, and optional crotch length, height, shoulder width, colour or fabric preference, occasion, and deadline notes. Measurements can be in inches or cm, but keep the unit consistent."
+        },
+        {
+          text: "custom prices deposit pay balance collection delivery",
+          answer: "Custom-order prices are KES 5,200 for a two-piece set, KES 2,900 for a midi skirt, KES 3,400 for a long skirt, KES 2,200 for a top, and KES 4,600 for a dress. A 50% deposit confirms the order; the balance is due on collection or delivery."
+        },
+        {
+          text: "payment pay M-Pesa card deposit checkout",
+          answer: "The site records ready-to-wear orders and custom-order deposits, but it does not publish a payment method or payment instructions. Leave your contact details and KATAWA WEAR will follow up to confirm payment and order details."
+        },
+        {
+          text: "returns refund exchange policy delivery returns",
+          answer: "A returns, exchanges, or refund policy is not published on this page. Please contact KATAWA WEAR before ordering so the team can confirm the current policy."
+        },
+        {
+          text: "about story brand Katawa Wear clothing fabric movement",
+          answer: "KATAWA WEAR is based in Nairobi, Kenya. The brand focuses on clothes that move with you, using fabrics that drape rather than cling, with a tight range of considered pieces made to be worn repeatedly."
+        },
+        {
+          text: "contact reach phone email Instagram TikTok Facebook social media",
+          answer: "Contact KATAWA WEAR at katawawear@gmail.com or 0734808081. The site also links to Instagram @katawa_wear and TikTok @katawawear."
+        },
+        {
+          text: "account sign in signup register Google favourite favourites track orders",
+          answer: "You can create an account or sign in with email and password, or continue with Google. An account is used to track orders and save favourites. Guest checkout is also supported."
+        },
+        {
+          text: "newsletter subscribe email updates new drops restocks spam",
+          answer: "You can subscribe to the newsletter for new drops and restocks. The site says it does not send spam."
+        },
+        ...productDetails
+      ];
+    }
+
+    const SITE_KNOWLEDGE = buildSiteKnowledge();
+    const CHAT_STOP_WORDS = new Set(["a", "about", "and", "are", "can", "do", "for", "how", "i", "is", "it", "me", "my", "of", "on", "or", "the", "to", "what", "where", "which", "with", "you"]);
+    const CHAT_SYNONYMS = {
+      buy: "order purchase checkout", cost: "price prices", fee: "delivery shipping cost",
+      ship: "delivery", deliver: "delivery", size: "sizing fit", made: "custom bespoke",
+      contact: "reach phone email", set: "sets two piece", skirt: "skirts", refund: "returns policy"
+    };
+
+    function chatTerms(text) {
+      const normalized = text.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
+      const words = normalized.split(/\s+/).filter(word => word.length > 1 && !CHAT_STOP_WORDS.has(word));
+      return new Set(words.concat(words.flatMap(word => (CHAT_SYNONYMS[word] || "").split(" "))));
+    }
+
+    function findChatAnswer(question) {
+      const terms = chatTerms(question);
+      const mentionedProduct = PRODUCTS.find(product => {
+        const productTerms = product.name.toLowerCase().split(/[^a-z0-9]+/).filter(term => term.length > 2);
+        const genericTerms = new Set(["top", "skirt", "set", "dress", "wrap", "long", "midi", "crop", "shirt", "blouse", "flowing", "satin", "pleated", "maxi"]);
+        return productTerms.some(term => !genericTerms.has(term) && terms.has(term));
+      });
+
+      if (mentionedProduct) {
+        const availableSizes = mentionedProduct.sizes.filter(size => !mentionedProduct.soldOut.includes(size));
+        const stockNote = mentionedProduct.soldOut.length
+          ? ` Sold-out sizes: ${mentionedProduct.soldOut.join(", ")}; available sizes: ${availableSizes.join(", ")}.`
+          : ` Available sizes: ${availableSizes.join(", ")}.`;
+        return `${mentionedProduct.name} is a ${mentionedProduct.category.toLowerCase()} priced at KES ${mentionedProduct.price.toLocaleString()}.${stockNote}`;
+      }
+
+      const ranked = SITE_KNOWLEDGE.map(entry => {
+        const entryTerms = chatTerms(entry.text);
+        const overlap = [...terms].filter(term => entryTerms.has(term)).length;
+        const exactPhrase = entry.text.toLowerCase().includes(question.toLowerCase()) ? 5 : 0;
+        return { entry, score: overlap + exactPhrase };
+      }).sort((left, right) => right.score - left.score);
+
+      if (ranked[0] && ranked[0].score > 0) return ranked[0].entry.answer;
+      return "I can help with KATAWA WEAR's products, prices, sizes, stock, delivery, checkout, custom orders, accounts, contact details, and newsletter. I could not find that detail on the site, so please contact katawawear@gmail.com or 0734808081 for a confirmed answer.";
+    }
+
     function sendChat() {
       const input = document.getElementById("chatInput");
       const text = input.value.trim();
       if (!text) return;
 
       const messages = document.getElementById("chatMessages");
-      messages.innerHTML += `<div class="message user">${text}</div>`;
+      messages.innerHTML += `<div class="message user">${escapeChatHtml(text)}</div>`;
       input.value = "";
 
-      const reply = getBotReply(text.toLowerCase());
+      const reply = findChatAnswer(text);
       setTimeout(() => {
-        messages.innerHTML += `<div class="message bot">${reply}</div>`;
+        messages.innerHTML += `<div class="message bot">${escapeChatHtml(reply)}</div>`;
         messages.scrollTop = messages.scrollHeight;
       }, 400);
 
       messages.scrollTop = messages.scrollHeight;
-    }
-
-    function getBotReply(text) {
-      if (text.includes("size")) return "Our sizes run S–XL. Check the size row on each product card — sold-out sizes show with a strikethrough.";
-      if (text.includes("set")) return "Our Two-Piece Sets pair a top with a midi or long skirt — see the Two-Piece Sets category up top.";
-      if (text.includes("skirt")) return "We only stock midi and long skirts — no minis. Filter by Midi Skirts or Long Skirts to browse.";
-      if (text.includes("deliver")) return "Delivery is free on orders over KES 5,000 across Kenya.";
-      return "Got it — feel free to browse by category, or ask me about sizing, sets, or delivery.";
     }
 
     /* ============= TOAST ============= */
@@ -1866,7 +2070,9 @@
 
     /* ============= INIT ============= */
 
-    document.querySelector(".logo img").alt = "KATAWA WEAR";
+    const logoImage = document.querySelector(".logo img");
+    logoImage.src = "katawa-logo-header.png";
+    logoImage.alt = "KATAWA WEAR logo";
     renderCategories();
     renderFilters();
     renderProducts();
