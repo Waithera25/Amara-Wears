@@ -82,10 +82,18 @@ serve(async (request) => {
         TransactionDesc: String(description || "KATAWA WEAR payment").slice(0, 50)
       })
     });
-    const result = await stkResponse.json();
+    const responseText = await stkResponse.text();
+    let result: Record<string, unknown> = {};
+    try {
+      result = JSON.parse(responseText);
+    } catch (_error) {
+      return jsonResponse({ error: "M-Pesa returned an invalid response" }, 502);
+    }
 
     if (!stkResponse.ok || result.ResponseCode !== "0") {
-      return jsonResponse({ error: result.errorMessage || result.ResponseDescription || "Could not start M-Pesa payment" }, 502);
+      return jsonResponse({
+        error: result.errorMessage || result.errorCode || result.ResponseDescription || "Could not start M-Pesa payment"
+      }, 502);
     }
 
     return jsonResponse({ checkoutRequestId: result.CheckoutRequestID, customerMessage: result.CustomerMessage });

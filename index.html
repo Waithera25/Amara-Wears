@@ -1536,9 +1536,9 @@
     const SUPABASE_URL = "https://ickbjjnemmpdlreduknp.supabase.co";
     const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_MAMhuLWjZ58WtUzZw5XuFg_8T3nCj7x";
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-    let authMode = "signin";
-
-    function updateAccountUI(user) {
+      const SUPABASE_URL = "https://ickbjjnemmpdlreduknp.supabase.co";
+      const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlja2Jqam5lbW1wZGxyZWR1a25wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg1OTUyMjgsImV4cCI6MjEwNDE3MTIyOH0.8UwRcWWLcxwGOAiCAKnLpgNZqpcaxnKMFGs4URF8Ay4";
+      const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
       const accountButton = document.getElementById("accountButton");
       const accountLabel = document.getElementById("accountLabel");
       const accountName = user?.user_metadata?.full_name?.trim() || user?.email?.split("@")[0] || "Account";
