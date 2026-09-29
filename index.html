@@ -2079,7 +2079,7 @@
     async function signInWithGoogle() {
       const { error } = await supabaseClient.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.href }
+        options: { redirectTo: window.location.origin }
       });
       if (error) showToast(error.message);
     }
@@ -2352,7 +2352,6 @@
     /* ============= INIT ============= */
 
     const logoImage = document.querySelector(".logo img");
-    logoImage.src = "katawa-logo-header.png";
     logoImage.alt = "KATAWA WEAR logo";
     renderCategories();
     renderFilters();
