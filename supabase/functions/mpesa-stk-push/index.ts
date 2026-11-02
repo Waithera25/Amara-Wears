@@ -1,6 +1,6 @@
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "jsr:@supabase/server@^1";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 interface PaymentRequest {
   amount: number;
@@ -55,9 +55,7 @@ function getTimestamp(): string {
 }
 
 export default {
-  fetch: withSupabase(
-    { auth: "publishable" },
-    async (req, ctx) => {
+  fetch: async (req: Request) => {
       if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
       }
@@ -67,6 +65,12 @@ export default {
       }
 
       try {
+        const supabaseAdmin = createClient(
+          getSecret("SUPABASE_URL"),
+          getSecret("SUPABASE_SERVICE_ROLE_KEY"),
+          { auth: { autoRefreshToken: false, persistSession: false } }
+        );
+
         const body: PaymentRequest = await req.json();
         const amount = Number(body.amount);
         const phone = normalizePhone(String(body.phone ?? ""));
@@ -121,7 +125,7 @@ export default {
 
         // Create payment record.
         const { error: insertError } =
-          await ctx.supabaseAdmin
+          await supabaseAdmin
             .from("payments")
             .insert({
               order_reference: orderReference,
@@ -170,7 +174,7 @@ export default {
           stkData.ResponseCode !== "0" ||
           !stkData.CheckoutRequestID
         ) {
-          await ctx.supabaseAdmin
+          await supabaseAdmin
             .from("payments")
             .update({
               status: "failed",
@@ -189,7 +193,7 @@ export default {
           );
         }
 
-        await ctx.supabaseAdmin
+        await supabaseAdmin
           .from("payments")
           .update({
             status: "processing",
@@ -217,5 +221,4 @@ export default {
         }, 500);
       }
     }
-  ),
 };
