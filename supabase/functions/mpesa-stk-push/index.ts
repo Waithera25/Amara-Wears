@@ -1,103 +1,221 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { withSupabase } from "jsr:@supabase/server@^1";
+
+interface PaymentRequest {
+  amount: number;
+  phone: string;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function jsonResponse(body: Record<string, unknown>, status = 200) {
-  return new Response(JSON.stringify(body), {
+function json(data: unknown, status = 200) {
+  return Response.json(data, {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
+    headers: corsHeaders,
   });
 }
 
-function timestamp() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Nairobi",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return `${values.year}${values.month}${values.day}${values.hour}${values.minute}${values.second}`;
+function getSecret(name: string): string {
+  const value = Deno.env.get(name);
+  if (!value) throw new Error(`Missing secret: ${name}`);
+  return value;
 }
 
-serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
-  if (request.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
+function normalizePhone(phone: string): string {
+  const cleaned = phone.replace(/[\s+()-]/g, "");
 
-  try {
-    const { amount, phone, description } = await request.json();
-    const shortcode = Deno.env.get("MPESA_SHORTCODE");
-    const passkey = Deno.env.get("MPESA_PASSKEY");
-    const consumerKey = Deno.env.get("MPESA_CONSUMER_KEY");
-    const consumerSecret = Deno.env.get("MPESA_CONSUMER_SECRET");
-    const callbackUrl = Deno.env.get("MPESA_CALLBACK_URL");
-    const environment = Deno.env.get("MPESA_ENVIRONMENT") === "production" ? "production" : "sandbox";
-
-    if (!shortcode || !passkey || !consumerKey || !consumerSecret || !callbackUrl) {
-      return jsonResponse({ error: "M-Pesa server configuration is incomplete" }, 500);
-    }
-    if (!Number.isInteger(amount) || amount < 1 || !/^254[17]\d{8}$/.test(phone)) {
-      return jsonResponse({ error: "Invalid amount or phone number" }, 400);
-    }
-
-    const baseUrl = environment === "production"
-      ? "https://api.safaricom.co.ke"
-      : "https://sandbox.safaricom.co.ke";
-    const basicAuth = btoa(`${consumerKey}:${consumerSecret}`);
-    const tokenResponse = await fetch(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
-      headers: { Authorization: `Basic ${basicAuth}` }
-    });
-    const token = await tokenResponse.json();
-    if (!tokenResponse.ok || !token.access_token) {
-      return jsonResponse({ error: "Could not authenticate with M-Pesa" }, 502);
-    }
-
-    const requestTimestamp = timestamp();
-    const password = btoa(`${shortcode}${passkey}${requestTimestamp}`);
-    const stkResponse = await fetch(`${baseUrl}/mpesa/stkpush/v1/processrequest`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token.access_token}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        BusinessShortCode: shortcode,
-        Password: password,
-        Timestamp: requestTimestamp,
-        TransactionType: "CustomerPayBillOnline",
-        Amount: amount,
-        PartyA: phone,
-        PartyB: shortcode,
-        PhoneNumber: phone,
-        CallBackURL: callbackUrl,
-        AccountReference: "KATAWA WEAR",
-        TransactionDesc: String(description || "KATAWA WEAR payment").slice(0, 50)
-      })
-    });
-    const responseText = await stkResponse.text();
-    let result: Record<string, unknown> = {};
-    try {
-      result = JSON.parse(responseText);
-    } catch (_error) {
-      return jsonResponse({ error: "M-Pesa returned an invalid response" }, 502);
-    }
-
-    if (!stkResponse.ok || result.ResponseCode !== "0") {
-      return jsonResponse({
-        error: result.errorMessage || result.errorCode || result.ResponseDescription || "Could not start M-Pesa payment"
-      }, 502);
-    }
-
-    return jsonResponse({ checkoutRequestId: result.CheckoutRequestID, customerMessage: result.CustomerMessage });
-  } catch (_error) {
-    return jsonResponse({ error: "Could not start M-Pesa payment" }, 500);
+  if (/^0[17]\d{8}$/.test(cleaned)) {
+    return `254${cleaned.slice(1)}`;
   }
-});
+
+  if (/^254[17]\d{8}$/.test(cleaned)) {
+    return cleaned;
+  }
+
+  throw new Error("Invalid Kenyan phone number.");
+}
+
+function getTimestamp(): string {
+  const d = new Date();
+
+  return (
+    d.getFullYear().toString() +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    String(d.getDate()).padStart(2, "0") +
+    String(d.getHours()).padStart(2, "0") +
+    String(d.getMinutes()).padStart(2, "0") +
+    String(d.getSeconds()).padStart(2, "0")
+  );
+}
+
+export default {
+  fetch: withSupabase(
+    { auth: "publishable" },
+    async (req, ctx) => {
+      if (req.method === "OPTIONS") {
+        return new Response("ok", { headers: corsHeaders });
+      }
+
+      if (req.method !== "POST") {
+        return json({ error: "POST required" }, 405);
+      }
+
+      try {
+        const body: PaymentRequest = await req.json();
+        const amount = Number(body.amount);
+        const phone = normalizePhone(String(body.phone ?? ""));
+
+        if (
+          !Number.isSafeInteger(amount) ||
+          amount < 1 ||
+          amount > 150000
+        ) {
+          return json({ error: "Invalid payment amount." }, 400);
+        }
+
+        const consumerKey = getSecret("MPESA_CONSUMER_KEY");
+        const consumerSecret = getSecret("MPESA_CONSUMER_SECRET");
+        const shortcode = getSecret("MPESA_SHORTCODE");
+        const passkey = getSecret("MPESA_PASSKEY");
+        const callbackToken = getSecret("MPESA_CALLBACK_TOKEN");
+        const supabaseUrl = getSecret("SUPABASE_URL");
+
+        const baseUrl =
+          Deno.env.get("MPESA_ENVIRONMENT") === "production"
+            ? "https://api.safaricom.co.ke"
+            : "https://sandbox.safaricom.co.ke";
+
+        // Authenticate with Daraja.
+        const credentials = btoa(
+          `${consumerKey}:${consumerSecret}`
+        );
+
+        const authResponse = await fetch(
+          `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
+          {
+            headers: {
+              Authorization: `Basic ${credentials}`,
+            },
+          }
+        );
+
+        const authData = await authResponse.json();
+
+        if (!authResponse.ok || !authData.access_token) {
+          throw new Error("Daraja authentication failed.");
+        }
+
+        const timestamp = getTimestamp();
+        const password = btoa(
+          `${shortcode}${passkey}${timestamp}`
+        );
+
+        const orderReference =
+          `KATAWA-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
+
+        // Create payment record.
+        const { error: insertError } =
+          await ctx.supabaseAdmin
+            .from("payments")
+            .insert({
+              order_reference: orderReference,
+              phone_number: phone,
+              amount,
+              status: "pending",
+            });
+
+        if (insertError) throw insertError;
+
+        const callbackUrl =
+          `${supabaseUrl}/functions/v1/mpesa-callback` +
+          `?token=${encodeURIComponent(callbackToken)}`;
+
+        // Initiate STK Push.
+        const stkResponse = await fetch(
+          `${baseUrl}/mpesa/stkpush/v1/processrequest`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authData.access_token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              BusinessShortCode: shortcode,
+              Password: password,
+              Timestamp: timestamp,
+              TransactionType:
+                Deno.env.get("MPESA_TRANSACTION_TYPE") ??
+                "CustomerPayBillOnline",
+              Amount: amount,
+              PartyA: phone,
+              PartyB: shortcode,
+              PhoneNumber: phone,
+              CallBackURL: callbackUrl,
+              AccountReference: orderReference,
+              TransactionDesc: "KATAWA WEAR purchase",
+            }),
+          }
+        );
+
+        const stkData = await stkResponse.json();
+
+        if (
+          !stkResponse.ok ||
+          stkData.ResponseCode !== "0" ||
+          !stkData.CheckoutRequestID
+        ) {
+          await ctx.supabaseAdmin
+            .from("payments")
+            .update({
+              status: "failed",
+              result_description:
+                stkData.errorMessage ??
+                stkData.ResponseDescription ??
+                "STK Push failed",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("order_reference", orderReference);
+
+          throw new Error(
+            stkData.errorMessage ??
+            stkData.ResponseDescription ??
+            "STK Push failed."
+          );
+        }
+
+        await ctx.supabaseAdmin
+          .from("payments")
+          .update({
+            status: "processing",
+            merchant_request_id: stkData.MerchantRequestID,
+            checkout_request_id: stkData.CheckoutRequestID,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("order_reference", orderReference);
+
+        return json({
+          success: true,
+          message: "STK Push sent. Check your phone.",
+          orderReference,
+          checkoutRequestId: stkData.CheckoutRequestID,
+        });
+
+      } catch (error) {
+        console.error("Payment error:", error);
+
+        return json({
+          success: false,
+          error: error instanceof Error
+            ? error.message
+            : "Payment request failed.",
+        }, 500);
+      }
+    }
+  ),
+};
