@@ -1,2 +1,2 @@
 [functions.mpesa-stk-push]
-verify_jwt = false
+verify_jwt = falsenpx supabase functions deploy mpesa-stk-push
