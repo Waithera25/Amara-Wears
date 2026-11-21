@@ -1409,7 +1409,8 @@
         </select>
         <input class="input" type="text" id="orderContactValue" placeholder="Number or email">
       </div>
-      <input class="input" type="tel" id="orderMpesaPhone" placeholder="M-Pesa number (e.g. 0712345678)">
+      <input class="input" type="email" id="orderEmail" placeholder="Email for payment receipt" required>
+       <p style="font-size:0.8rem;margin:8px 0">Secure payment by Paystack — M-Pesa or card</p>
       <button class="btn btn-primary" style="width:100%" onclick="submitCheckout()">Place Order</button>
     </div>
   </div>
@@ -1508,7 +1509,8 @@
         <input class="input" type="text" id="coContactValue" placeholder="Number, email or handle">
       </div>
 
-      <input class="input" type="tel" id="coMpesaPhone" placeholder="M-Pesa number (e.g. 0712345678)">
+      <input class="input" type="email" id="coEmail" placeholder="Email for payment receipt" required>
+       <p style="font-size:0.8rem;margin:8px 0">Pay the 50% deposit securely by M-Pesa or card (Paystack)</p>
 
       <button class="btn btn-primary" style="width:100%" onclick="submitCustomOrder()">Submit &amp; Pay 50% Deposit</button>
     </div>
@@ -1947,83 +1949,68 @@
       document.getElementById("overlay").classList.remove("show");
     }
 
-    function normalizeMpesaPhone(value) {
-      const digits = value.replace(/\D/g, "");
-      if (/^07\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
-      if (/^01\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
-      if (/^254[17]\d{8}$/.test(digits)) return digits;
-      return null;
-    }
-
-    async function requestMpesaPayment(amount, phone, description) {
-      const normalizedPhone = normalizeMpesaPhone(phone);
-      if (!normalizedPhone) {
-        showToast("Enter a valid Kenyan M-Pesa number");
+    // Paystack initialization is server-side. Never embed a secret key or trust browser prices.
+    async function beginPaystackPayment(body) {
+      try {
+        showToast("Opening secure Paystack checkout...");
+        const { data, error } = await supabaseClient.functions.invoke("paystack-init", { body });
+        if (error || !data?.authorization_url) throw new Error(error?.message || data?.error || "Payment unavailable");
+        const checkoutUrl = new URL(data.authorization_url);
+        if (checkoutUrl.protocol !== "https:" ||
+            !(checkoutUrl.hostname === "paystack.com" || checkoutUrl.hostname.endsWith(".paystack.com"))) {
+          throw new Error("Unrecognized payment page");
+        }
+        // Store only UI cart state. Backend owns payment/order records.
+        window.location.assign(checkoutUrl.toString());
+        return true;
+      } catch (error) {
+        showToast("Could not start payment. Please retry.");
+        console.error("Paystack checkout error:", error);
         return false;
       }
-
-      showToast("Check your phone for the M-Pesa prompt");
-      const { error } = await supabaseClient.functions.invoke("mpesa-stk-push", {
-        body: { amount: Math.round(amount), phone: normalizedPhone, description }
-      });
-
-      if (error) {
-        showToast(`Could not start M-Pesa payment: ${error.message}`);
-        return false;
-      }
-      return true;
     }
 
     async function submitCheckout() {
       const locationSelect = document.getElementById("deliveryLocation");
       const deliveryLocation = locationSelect.value;
-      const selectedDeliveryFee = Number(locationSelect.options[locationSelect.selectedIndex].dataset.fee);
       const deliveryAddress = document.getElementById("deliveryAddress").value.trim();
       const contactMethod = document.getElementById("orderContactMethod").value;
       const contactValue = document.getElementById("orderContactValue").value.trim();
-      const mpesaPhone = document.getElementById("orderMpesaPhone").value.trim();
-
-      if (!deliveryAddress) {
-        showToast("Add a delivery address");
-        return;
+      const email = document.getElementById("orderEmail").value.trim();
+      if (!deliveryAddress) return showToast("Add a delivery address");
+      if (!contactValue) return showToast("Add a contact so we can reach you");
+      if (!email || !document.getElementById("orderEmail").checkValidity()) {
+        return showToast("Enter a valid email address for your receipt");
       }
-      if (!contactValue) {
-        showToast("Add a contact so we can reach you");
-        return;
-      }
-      if (!normalizeMpesaPhone(mpesaPhone)) {
-        showToast("Enter a valid Kenyan M-Pesa number");
-        return;
-      }
-
-      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-      const deliveryFee = subtotal > 10000 ? 0 : selectedDeliveryFee;
-      const total = subtotal + deliveryFee;
-      const paymentStarted = await requestMpesaPayment(total, mpesaPhone, "KATAWA WEAR order");
-      if (!paymentStarted) return;
-
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      const { error } = await supabaseClient.from("orders").insert({
-        user_id: user ? user.id : null,
-        items: cart.map(item => ({ product_id: item.id, name: item.name, size: item.size, qty: item.qty, price: item.price })),
-        subtotal,
-        delivery_location: deliveryLocation,
-        delivery_address: deliveryAddress,
-        delivery_fee: deliveryFee,
-        total,
-        contact_method: contactMethod,
-        contact_value: contactValue
+      await beginPaystackPayment({
+        kind: "ready", email, delivery_location: deliveryLocation, delivery_address: deliveryAddress,
+        contact_method: contactMethod, contact_value: contactValue,
+        items: cart.map(item => ({ id: item.id, size: item.size, qty: item.qty }))
       });
+    }
 
-      if (error) {
-        showToast(`Could not place order: ${error.message}`);
-        return;
+    async function checkPaystackReturn() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("payment") !== "return") return;
+      const reference = params.get("reference") || params.get("trxref");
+      // Prevent repeated verification on refresh.
+      window.history.replaceState({}, "", window.location.pathname + window.location.hash);
+      if (!reference) return showToast("Payment returned without a reference. Please contact us.");
+      try {
+        const { data, error } = await supabaseClient.functions.invoke("paystack-confirm", {
+          body: { reference }
+        });
+        if (error || data?.status !== "paid") {
+          alert("Payment is still unconfirmed. Please check your Paystack receipt or contact Katawa before placing another order.");
+          return;
+        }
+        cart = [];
+        updateCartUI();
+        alert("Payment confirmed! Thank you for shopping at KATAWA WEAR.");
+      } catch (error) {
+        console.error("Verification error:", error);
+        alert("We couldn't confirm the payment yet. Check your receipt before retrying.");
       }
-
-      cart = [];
-      updateCartUI();
-      closeCheckout();
-      showToast("Order received — we'll be in touch shortly");
     }
 
     /* ============= AUTH MODAL ============= */
@@ -2112,68 +2099,29 @@
     }
 
     async function submitCustomOrder() {
-      const garmentSelect = document.getElementById("coGarment");
-      const garment = garmentSelect.value;
-      const opt = garmentSelect.options[garmentSelect.selectedIndex];
-      const price = Number(opt.dataset.price || 0);
-
+      const garment = document.getElementById("coGarment").value;
       const bust = document.getElementById("coBust").value.trim();
       const waist = document.getElementById("coWaist").value.trim();
       const hips = document.getElementById("coHips").value.trim();
-      const colorFabric = document.getElementById("coColor").value.trim();
-      const crotchLength = document.getElementById("coCrotch").value.trim();
-      const height = document.getElementById("coHeight").value.trim();
-      const shoulder = document.getElementById("coShoulder").value.trim();
-      const notes = document.getElementById("coNotes").value.trim();
       const contactValue = document.getElementById("coContactValue").value.trim();
-      const contactMethod = document.getElementById("coContactMethod").value;
-      const mpesaPhone = document.getElementById("coMpesaPhone").value.trim();
-
-      if (!garment) {
-        showToast("Pick what you'd like made first");
-        return;
+      const email = document.getElementById("coEmail").value.trim();
+      if (!garment) return showToast("Pick what you'd like made first");
+      if (!bust || !waist || !hips) return showToast("Enter bust, waist and hips measurements");
+      if (!contactValue) return showToast("Add a contact so we can reach you");
+      if (!email || !document.getElementById("coEmail").checkValidity()) {
+        return showToast("Enter a valid email address for your receipt");
       }
-      if (!bust || !waist || !hips) {
-        showToast("Bust, waist and hips are needed to cut your order");
-        return;
-      }
-      if (!contactValue) {
-        showToast("Add a contact so we can reach you about your order");
-        return;
-      }
-      if (!normalizeMpesaPhone(mpesaPhone)) {
-        showToast("Enter a valid Kenyan M-Pesa number");
-        return;
-      }
-
-      const deposit = Math.round(price * 0.5);
-      const paymentStarted = await requestMpesaPayment(deposit, mpesaPhone, `${garment} custom order deposit`);
-      if (!paymentStarted) return;
-
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      const { error } = await supabaseClient.from("custom_orders").insert({
-        user_id: user ? user.id : null,
-        garment,
-        color_fabric: colorFabric,
-        bust,
-        waist,
-        hips,
-        crotch_length: crotchLength,
-        height,
-        shoulder,
-        notes,
-        deposit_amount: deposit,
-        contact_method: contactMethod,
+      await beginPaystackPayment({
+        kind: "custom", garment, email,
+        bust, waist, hips,
+        color_fabric: document.getElementById("coColor").value.trim(),
+        crotch_length: document.getElementById("coCrotch").value.trim(),
+        height: document.getElementById("coHeight").value.trim(),
+        shoulder: document.getElementById("coShoulder").value.trim(),
+        notes: document.getElementById("coNotes").value.trim(),
+        contact_method: document.getElementById("coContactMethod").value,
         contact_value: contactValue
       });
-
-      if (error) {
-        showToast(`Could not submit custom order: ${error.message}`);
-        return;
-      }
-
-      showToast(`Order received — we'll ${contactMethod.toLowerCase()} ${contactValue} for the KES ${deposit.toLocaleString()} deposit`);
-      closeCustomOrder();
     }
 
     /* ============= NEWSLETTER ============= */
@@ -2253,7 +2201,7 @@
         },
         {
           text: "payment pay M-Pesa card deposit checkout",
-          answer: "The site records ready-to-wear orders and custom-order deposits, but it does not publish a payment method or payment instructions. Leave your contact details and KATAWA WEAR will follow up to confirm payment and order details."
+          answer: "Checkout securely using Paystack with M-Pesa or card. Enter a receipt email and delivery contact information. Custom orders require a 50% deposit."
         },
         {
           text: "returns refund exchange policy delivery returns",
@@ -2357,6 +2305,7 @@
     renderFilters();
     renderProducts();
     updateCartUI();
+    checkPaystackReturn();
   </script>
 
 </body>

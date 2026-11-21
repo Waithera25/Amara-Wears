@@ -1,2 +1,8 @@
-[functions.mpesa-stk-push]
-verify_jwt = falsenpx supabase functions deploy mpesa-stk-push
+[functions.paystack-init]
+verify_jwt = false
+
+[functions.paystack-confirm]
+verify_jwt = false
+
+[functions.paystack-webhook]
+verify_jwt = false
