@@ -18,5 +18,11 @@ After fully verifying test transactions and payment amounts, replace the test se
 - Paystack initialization uses KES **subunits** (amount in cents); successful payments are matched to the expected reference, currency, amount, and email using the Paystack verify API.
 - The webhook is signed and calls the same verification function; browser return is only a secondary reconciliation path. Status updates are idempotent. Pending/failed initialization orders remain in database for troubleshooting; keep operations/admin visibility in mind.
 - The customer supplies an email for Paystack receipts and may use a different contact method for delivery.
-- Browser order update/insert permissions are revoked by the separate **cutover** migration to prevent marking unpaid orders paid. Do not apply cutover before deploying the new checkout. Older Daraja frontend code is replaced; the legacy functions are retained but no longer called by the site.
+- Browser order update/insert permissions are revoked by the separate **cutover** migration to prevent marking unpaid orders paid. Do not apply cutover before deploying the new checkout. Older Daraja frontend code and Daraja Edge Function source files were removed from this branch. The old functions, if already deployed to Supabase, are NOT automatically deleted by GitHub changes. Delete those deployed functions only after Paystack has been tested and production checkout has been switched over.
 - If the domain is hosted somewhere other than Docker or your deployed frontend, update that hosting source as well.
+
+## Retire legacy Daraja after successful production cutover
+- Confirm Paystack ready-to-wear and custom-deposit payments both succeed, paid statuses are verified via webhook, and existing orders are handled.
+- In Supabase Dashboard → Edge Functions, delete deployed `mpesa-stk-push` and `mpesa-callback` after confirming nothing still calls them. Repository deletions do not remove deployed Edge Functions.
+- In Supabase Dashboard → Edge Functions → Secrets, retire the Daraja-only secrets such as `MPESA_CONSUMER_KEY`, `MPESA_CONSUMER_SECRET`, `MPESA_SHORTCODE`, `MPESA_PASSKEY`, `MPESA_CALLBACK_TOKEN`, `MPESA_ENVIRONMENT`, `MPESA_TRANSACTION_TYPE` only if no other applications rely on them.
+- Leave any `payments` table or historic records intact for accounting/reconciliation; only remove old infrastructure, not transaction history.
