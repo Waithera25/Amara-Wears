@@ -1,5 +1,5 @@
 -- Apply this migration BEFORE deploying or enabling Paystack checkout.
--- Supabase service-role functions own creation/payment transitions; browsers are read-only.
+-- Safe preliminary migration: adds catalog, pricing and payment fields.\n-- Existing checkout permissions remain intact until the Paystack cutover.\n-- Run the separate 20261121_paystack_cutover.sql ONLY when the new checkout is ready.
 create table if not exists public.katawa_catalog (
   id integer primary key,
   name text not null,
@@ -29,15 +29,6 @@ alter table public.custom_orders
   add column if not exists payment_reference text;
 create unique index if not exists orders_payment_reference_uq on public.orders(payment_reference);
 create unique index if not exists custom_orders_payment_reference_uq on public.custom_orders(payment_reference);
-
--- Stop clients forging order amounts or status by bypassing Paystack checkout.
-drop policy if exists "Anyone can create orders" on public.orders;
-drop policy if exists "Users can update their orders" on public.orders;
-drop policy if exists "Anyone can create custom orders" on public.custom_orders;
-drop policy if exists "Users can update their custom orders" on public.custom_orders;
--- RLS select policies for signed-in users remain unchanged.
-revoke insert, update, delete on public.orders from anon, authenticated;
-revoke insert, update, delete on public.custom_orders from anon, authenticated;
 
 -- Prices seeded from current index.html; update BOTH site and catalog when changing prices.
 insert into public.katawa_catalog (id,name,price_kes,sizes,sold_out,active) values
