@@ -1409,8 +1409,8 @@
         </select>
         <input class="input" type="text" id="orderContactValue" placeholder="Number or email">
       </div>
-      <input class="input" type="tel" id="orderMpesaPhone" placeholder="M-Pesa number (e.g. 0712345678)">
-      <button class="btn btn-primary" style="width:100%" onclick="submitCheckout()">Place Order</button>
+      <p style="font-size:.88rem;margin:10px 0;color:#6f5487">Online Paystack payments are being enabled. You can request an order now, but no payment will be collected yet.</p>
+      <button class="btn btn-primary" style="width:100%" onclick="submitCheckout()">Request Order — Payment Pending</button>
     </div>
   </div>
 
@@ -1508,9 +1508,9 @@
         <input class="input" type="text" id="coContactValue" placeholder="Number, email or handle">
       </div>
 
-      <input class="input" type="tel" id="coMpesaPhone" placeholder="M-Pesa number (e.g. 0712345678)">
+      <p style="font-size:.88rem;margin:10px 0;color:#6f5487">Online Paystack deposits are being enabled. Submit a request now; no deposit will be collected yet.</p>
 
-      <button class="btn btn-primary" style="width:100%" onclick="submitCustomOrder()">Submit &amp; Pay 50% Deposit</button>
+      <button class="btn btn-primary" style="width:100%" onclick="submitCustomOrder()">Request Custom Order — No Payment Yet</button>
     </div>
   </div>
 
@@ -1947,33 +1947,6 @@
       document.getElementById("overlay").classList.remove("show");
     }
 
-    function normalizeMpesaPhone(value) {
-      const digits = value.replace(/\D/g, "");
-      if (/^07\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
-      if (/^01\d{8}$/.test(digits)) return `254${digits.slice(1)}`;
-      if (/^254[17]\d{8}$/.test(digits)) return digits;
-      return null;
-    }
-
-    async function requestMpesaPayment(amount, phone, description) {
-      const normalizedPhone = normalizeMpesaPhone(phone);
-      if (!normalizedPhone) {
-        showToast("Enter a valid Kenyan M-Pesa number");
-        return false;
-      }
-
-      showToast("Check your phone for the M-Pesa prompt");
-      const { error } = await supabaseClient.functions.invoke("mpesa-stk-push", {
-        body: { amount: Math.round(amount), phone: normalizedPhone, description }
-      });
-
-      if (error) {
-        showToast(`Could not start M-Pesa payment: ${error.message}`);
-        return false;
-      }
-      return true;
-    }
-
     async function submitCheckout() {
       const locationSelect = document.getElementById("deliveryLocation");
       const deliveryLocation = locationSelect.value;
@@ -1981,7 +1954,6 @@
       const deliveryAddress = document.getElementById("deliveryAddress").value.trim();
       const contactMethod = document.getElementById("orderContactMethod").value;
       const contactValue = document.getElementById("orderContactValue").value.trim();
-      const mpesaPhone = document.getElementById("orderMpesaPhone").value.trim();
 
       if (!deliveryAddress) {
         showToast("Add a delivery address");
@@ -1991,17 +1963,9 @@
         showToast("Add a contact so we can reach you");
         return;
       }
-      if (!normalizeMpesaPhone(mpesaPhone)) {
-        showToast("Enter a valid Kenyan M-Pesa number");
-        return;
-      }
-
       const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
       const deliveryFee = subtotal > 10000 ? 0 : selectedDeliveryFee;
       const total = subtotal + deliveryFee;
-      const paymentStarted = await requestMpesaPayment(total, mpesaPhone, "KATAWA WEAR order");
-      if (!paymentStarted) return;
-
       const { data: { user } } = await supabaseClient.auth.getUser();
       const { error } = await supabaseClient.from("orders").insert({
         user_id: user ? user.id : null,
@@ -2012,7 +1976,9 @@
         delivery_fee: deliveryFee,
         total,
         contact_method: contactMethod,
-        contact_value: contactValue
+        contact_value: contactValue,
+        status: "awaiting_payment",
+        payment_status: "unpaid"
       });
 
       if (error) {
@@ -2023,7 +1989,7 @@
       cart = [];
       updateCartUI();
       closeCheckout();
-      showToast("Order received — we'll be in touch shortly");
+      alert("Order request received. No payment has been collected. Katawa Wear will contact you before confirming the order.");
     }
 
     /* ============= AUTH MODAL ============= */
@@ -2127,7 +2093,6 @@
       const notes = document.getElementById("coNotes").value.trim();
       const contactValue = document.getElementById("coContactValue").value.trim();
       const contactMethod = document.getElementById("coContactMethod").value;
-      const mpesaPhone = document.getElementById("coMpesaPhone").value.trim();
 
       if (!garment) {
         showToast("Pick what you'd like made first");
@@ -2141,15 +2106,7 @@
         showToast("Add a contact so we can reach you about your order");
         return;
       }
-      if (!normalizeMpesaPhone(mpesaPhone)) {
-        showToast("Enter a valid Kenyan M-Pesa number");
-        return;
-      }
-
       const deposit = Math.round(price * 0.5);
-      const paymentStarted = await requestMpesaPayment(deposit, mpesaPhone, `${garment} custom order deposit`);
-      if (!paymentStarted) return;
-
       const { data: { user } } = await supabaseClient.auth.getUser();
       const { error } = await supabaseClient.from("custom_orders").insert({
         user_id: user ? user.id : null,
@@ -2164,7 +2121,9 @@
         notes,
         deposit_amount: deposit,
         contact_method: contactMethod,
-        contact_value: contactValue
+        contact_value: contactValue,
+        status: "awaiting_payment",
+        payment_status: "unpaid"
       });
 
       if (error) {
@@ -2172,7 +2131,7 @@
         return;
       }
 
-      showToast(`Order received — we'll ${contactMethod.toLowerCase()} ${contactValue} for the KES ${deposit.toLocaleString()} deposit`);
+      alert(`Custom-order request received. No deposit has been collected. We will ${contactMethod.toLowerCase()} ${contactValue} to confirm next steps.`);
       closeCustomOrder();
     }
 
@@ -2253,7 +2212,7 @@
         },
         {
           text: "payment pay M-Pesa card deposit checkout",
-          answer: "The site records ready-to-wear orders and custom-order deposits, but it does not publish a payment method or payment instructions. Leave your contact details and KATAWA WEAR will follow up to confirm payment and order details."
+          answer: "Secure Paystack payments are being enabled. For now, submit an order request with your contact details. No money is collected during this step, and KATAWA WEAR will contact you about payment before confirming your order."
         },
         {
           text: "returns refund exchange policy delivery returns",
